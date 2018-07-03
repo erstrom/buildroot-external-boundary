@@ -35,6 +35,15 @@ define ATH10K_FIRMWARE_CREATE_SYMLINKS
 endef
 endif
 
+ifeq ($(BR2_PACKAGE_ATH10K_FIRMWARE_SDIO_BD_SDMAC), y)
+define ATH10K_FIRMWARE_CREATE_SYMLINKS
+	( \
+		ln -sf board-sdio-bd-SDMAC.bin $(TARGET_DIR)/lib/firmware/ath10k/QCA9377/hw1.0/board-sdio.bin; \
+		ln -sf untested/firmware-sdio-5.bin_WLAN.TF.1.1.1-00061-QCATFSWPZ-1 $(TARGET_DIR)/lib/firmware/ath10k/QCA9377/hw1.0/firmware-sdio-5.bin; \
+	)
+endef
+endif
+
 define ATH10K_FIRMWARE_INSTALL_TARGET_CMDS
 	mkdir -p $(TARGET_DIR)/lib/firmware/ath10k
 	cp -r $(@D)/* $(TARGET_DIR)/lib/firmware/ath10k
