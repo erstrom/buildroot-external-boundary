@@ -1,0 +1,60 @@
+#!/bin/sh
+
+FTRACE_PATH="/sys/kernel/debug/tracing"
+TRACEBUFFER_SIZE=10000
+
+case "$1" in
+	start)
+		echo "Checking if tracefs is mounted"
+		# Check if tracefs is already mounted
+		mount | grep tracefs > /dev/null && tracefs_mounted=1
+		# Mount tracefs if it was not already mounted
+		[ $tracefs_mounted ] || mount -t tracefs nodev $FTRACE_PATH
+
+		# increase trace buffer size in order to minimize the risk of missing
+		# stuff we want to trace
+		echo "Setting trace buffer size to $TRACEBUFFER_SIZE"
+		echo $TRACEBUFFER_SIZE > $FTRACE_PATH/buffer_size_kb
+
+		echo 0 > $FTRACE_PATH/tracing_on
+
+		# Setup function tracer
+		echo "Setting function tracer options"
+		echo 1 > $FTRACE_PATH/options/funcgraph-proc
+		echo 1 > $FTRACE_PATH/options/funcgraph-abstime
+		# This is a wireless/ath10k test setup, so we are mainly interested
+		# in ath10k and wireless stuff
+		echo "Setting function tracer filter"
+		echo :mod:cfg80211 > $FTRACE_PATH/set_ftrace_filter
+		echo *nl80211* >> $FTRACE_PATH/set_ftrace_filter
+		echo *ieee80211* >> $FTRACE_PATH/set_ftrace_filter
+		echo :mod:ath10k_core >> $FTRACE_PATH/set_ftrace_filter
+		echo :mod:ath10k_sdio >> $FTRACE_PATH/set_ftrace_filter
+		# Add ATH regulatory stuff
+		echo 'ath_reg_*' >> $FTRACE_PATH/set_ftrace_filter
+		# Remove all BMI function calls.
+		echo '*_bmi_*' > $FTRACE_PATH/set_ftrace_notrace
+		echo 'ath10k_sdio_read32' >> $FTRACE_PATH/set_ftrace_notrace
+		echo 'ath10k_sdio_write' >> $FTRACE_PATH/set_ftrace_notrace
+		echo "Setting ath10k trace events"
+		echo 1 > $FTRACE_PATH/events/ath10k/ath10k_log_dbg/enable
+		echo 1 > $FTRACE_PATH/events/ath10k/ath10k_log_info/enable
+		echo 1 > $FTRACE_PATH/events/ath10k/ath10k_log_warn/enable
+		echo 1 > $FTRACE_PATH/events/ath10k/ath10k_log_err/enable
+		echo "Setting function tracer"
+		echo function > $FTRACE_PATH/current_tracer
+		echo "Turning on tracing"
+		echo 1 > $FTRACE_PATH/tracing_on
+		;;
+	stop)
+		echo "Turning off tracing"
+		echo 0 > $FTRACE_PATH/tracing_on
+		;;
+	restart)
+		$0 stop
+		$0 start
+		;;
+	*)
+		echo "usage: $0 {start|stop|restart}"
+		;;
+esac
